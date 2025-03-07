@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexGen AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.0/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-image: url('https://images.unsplash.com/photo-1535223289827-42f1e9919769?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80');
+      background-size: cover;
+      background-position: center;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      font-family: 'Arial', sans-serif;
+    }
+    .chat-container {
+      width: 90%;
+      max-width: 600px;
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 15px;
+      padding: 20px;
+      height: 70vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      animation: fadeIn 1s ease-in-out;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    #text-input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: rgba(46, 46, 46, 0.8);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    #text-input:focus {
+      transform: scale(1.02);
+      box-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
+    }
+    #send-btn, #voice-btn, #stop-btn {
+      padding: 12px 20px;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #send-btn {
+      background: linear-gradient(135deg, #00ffaa, #00cc88);
+    }
+    #send-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 255, 170, 0.5);
+    }
+    #voice-btn {
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+    }
+    #voice-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 170, 255, 0.5);
+    }
+    #stop-btn {
+      background: linear-gradient(135deg, #ff4444, #cc0000);
+    }
+    #stop-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(255, 68, 68, 0.5);
+    }
+    .user-message {
+      color: #00ffaa;
+      margin-bottom: 10px;
+      text-align: right;
+      animation: slideInRight 0.5s ease;
+    }
+    .bot-message {
+      color: #fff;
+      margin-bottom: 10px;
+      text-align: left;
+      animation: slideInLeft 0.5s ease;
+    }
+    .bot-message::before {
+      content: "🤖";
+      margin-right: 8px;
+    }
+    .user-message::before {
+      content: "👤";
+      margin-right: 8px;
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideInRight {
+      0% { opacity: 0; transform: translateX(20px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInLeft {
+      0% { opacity: 0; transform: translateX(-20px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 20px;
+      border-radius: 50%;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Replace the src attribute with your image URL -->
+  <img src="https://i.imgur.com/is1OtD8.png" alt="NexGen AI Logo" class="logo">
+  <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-500 to-green-500 text-transparent bg-clip-text">NexGen AI</h1>
+  <div class="chat-container" id="chat-container"></div>
+  <div class="controls">
+    <input type="text" id="text-input" placeholder="Type your question...">
+    <button id="send-btn">📤 Send</button>
+    <button id="voice-btn">🎤 Speak</button>
+    <button id="stop-btn">🛑 Stop</button>
+  </div>
+  <script>
+    const chatContainer = document.getElementById('chat-container');
+    const textInput = document.getElementById('text-input');
+    const sendBtn = document.getElementById('send-btn');
+    const voiceBtn = document.getElementById('voice-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    const GEMINI_API_KEY = 'AIzaSyCDVDLSCljyD77fnHfGbUQ-ph3WVCH9BV8'; // Replace with your actual API key
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    // Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    // Text-to-Speech
+    const synth = window.speechSynthesis;
+    let speechQueue = [];
+    let isSpeaking = false;
+
+    // Event Listeners
+    sendBtn.addEventListener('click', async () => {
+      const question = textInput.value.trim();
+      if (question) {
+        addMessage(question, 'user');
+        const answer = await fetchGeminiResponse(question);
+        addMessage(answer, 'bot');
+        speakText(answer);
+        textInput.value = ''; // Clear input after sending
+      }
+    });
+
+    textInput.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        const question = textInput.value.trim();
+        if (question) {
+          addMessage(question, 'user');
+          const answer = await fetchGeminiResponse(question);
+          addMessage(answer, 'bot');
+          speakText(answer);
+          textInput.value = ''; // Clear input after sending
+        }
+      }
+    });
+
+    voiceBtn.addEventListener('click', () => {
+      recognition.start();
+      voiceBtn.classList.add('rotating');
+    });
+
+    recognition.onresult = async (event) => {
+      const question = event.results[0][0].transcript.trim();
+      addMessage(question, 'user');
+      const answer = await fetchGeminiResponse(question);
+      addMessage(answer, 'bot');
+      speakText(answer);
+    };
+
+    recognition.onend = () => {
+      voiceBtn.classList.remove('rotating');
+    };
+
+    stopBtn.addEventListener('click', () => {
+      synth.cancel(); // Stop text-to-speech
+      speechQueue = []; // Clear the speech queue
+      isSpeaking = false;
+    });
+
+    // Fetch Gemini API Response
+    async function fetchGeminiResponse(question) {
+      try {
+        const response = await fetch(GEMINI_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: question }]
+            }]
+          })
+        });
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't find an answer.";
+      } catch (error) {
+        console.error('Error fetching Gemini response:', error);
+        return "Sorry, I couldn't process your request. Please try again later.";
+      }
+    }
+
+    // Add Message to Chat Container
+    function addMessage(text, sender) {
+      const messageDiv = document.createElement("div");
+      messageDiv.textContent = text;
+      messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight; // Auto-scroll to the latest message
+    }
+
+    // Speak Text with Female Voice
+    function speakText(text) {
+      // Clean text and split into sentences
+      const cleanedText = text
+        .replace(/[*_~`#]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .trim();
+
+      // Split into manageable chunks (sentences or phrases)
+      const sentences = cleanedText.match(/[^.!?]+[.!?]+/g) || [cleanedText];
+      
+      // Add to speech queue
+      speechQueue = [...speechQueue, ...sentences];
+      
+      // Start speaking if not already
+      if (!isSpeaking) {
+        processSpeechQueue();
+      }
+    }
+
+    function processSpeechQueue() {
+      if (speechQueue.length === 0) {
+        isSpeaking = false;
+        return;
+      }
+
+      isSpeaking = true;
+      const text = speechQueue.shift();
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      // Set female voice if available
+      const voices = synth.getVoices();
+      const femaleVoice = voices.find(voice => 
+        voice.name.includes("Female") || voice.name.includes("female")
+      );
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+        utterance.pitch = 1.2; // Higher pitch for more feminine sound
+      }
+
+      utterance.onend = () => {
+        processSpeechQueue();
+      };
+
+      synth.speak(utterance);
+    }
+
+    // Ensure voices are loaded before speaking
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = () => {
+        console.log("Voices loaded");
+      };
+    }
+  </script>
+</body>
+</html>
